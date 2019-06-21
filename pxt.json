@@ -1,0 +1,12 @@
+{
+    "name": "Projekttag Erstentwurf",
+    "dependencies": {
+        "ev3": "*"
+    },
+    "description": "",
+    "files": [
+        "main.blocks",
+        "main.ts",
+        "README.md"
+    ]
+}
