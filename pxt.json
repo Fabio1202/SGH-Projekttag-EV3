@@ -3,10 +3,12 @@
     "dependencies": {
         "ev3": "*"
     },
-    "description": "",
+    "description": "Projekttag SGH 2019",
     "files": [
-        "main.blocks",
         "main.ts",
         "README.md"
+    ],
+    "testFiles": [
+        "test.ts"
     ]
 }
