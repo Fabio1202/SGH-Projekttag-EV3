@@ -1,68 +1,168 @@
-/**
- * Functions are mapped to blocks using various macros in comments starting with % (e.g., //% block). The most important macro "block" specifies that a block should be generated for a **exported** function.
- */
 //% color="#2267d6" icon="\uf10d" block="SGH"
 namespace Autonom {
     let speedRight: number;
     let speedLeft: number;
+    let maxSpeed: number;
+
+    let limitHighway: number;
+    let limitStreet: number;
+
+    let street: limits;
 
     let ports = {
         LEFTMOTOR: motors.largeA,
         RIGHTMOTOR: motors.largeB,
+        ULTRAMOTOR: motors.mediumD,
         FRONTULTRA: sensors.ultrasonic1,
         SIDEULTRA: sensors.ultrasonic2,
         COLORSENSOR: sensors.color3,
         LIGHTSENSOR: sensors.color4
     }
 
+    let colors = {
+        AUTOBAHN: ColorSensorColor.Blue,
+        LANDSTRASSE: ColorSensorColor.Red,
+        KREUZUNG: ColorSensorColor.Yellow,
+        PARKPLATZ: ColorSensorColor.Brown,
+        PARKPLATZ_EINFAHRT: ColorSensorColor.Green,
+        STRASSENLINIE: ColorSensorColor.Black,
+        BODEN: ColorSensorColor.White
+    }
+
     //% block
-    export function veraendereGeschwindigkeit(num: number) {
-        if (ports.LEFTMOTOR.speed() < maxSpeed && ports.RIGHTMOTOR.speed() < maxSpeed) {
-            motors.largeAB.run(ports.LEFTMOTOR.speed() + num)
+    export const enum limits {
+        AUTOBAHN,
+        LANDSTRASSE
+    }
+
+    //
+    // Ab hier Methodenaufrufe
+    //
+
+    init();
+
+    //
+    // Ab hier Methoden
+    //
+
+    function init() {
+        let ports = {
+            LEFTMOTOR: motors.largeA,
+            RIGHTMOTOR: motors.largeB,
+            ULTRAMOTOR: motors.mediumD,
+            FRONTULTRA: sensors.ultrasonic1,
+            SIDEULTRA: sensors.ultrasonic2,
+            COLORSENSOR: sensors.color3,
+            LIGHTSENSOR: sensors.color4
+        }
+
+        limitHighway = Math.randomRange(60, 80);
+        limitStreet = Math.randomRange(30, 50);
+
+        setLimit(limits.LANDSTRASSE);
+    }
+
+    ports.FRONTULTRA.onEvent(UltrasonicSensorEvent.ObjectDetected, function () {
+        if (street == limits.LANDSTRASSE) {
+            kollisionsErkennungStrasse();
+        } else if (street == limits.AUTOBAHN) {
+
+        }
+    })
+
+    function kollisionsErkennungAutobahn() {
+        //Erkennen, wenn der Weg frei ist
+        while (ports.FRONTULTRA.distance() >= 40 && street == limits.AUTOBAHN) {
+            veraendereGeschwindigkeit(1)
+            pause(80 * (ports.LEFTMOTOR.speed() / maxSpeed))
         }
     }
 
-    sensors.ultrasonic1.onEvent(UltrasonicSensorEvent.ObjectDetected, function () {
+    function kollisionsErkennungStrasse() {
         // Kollisionserkennung
-        while (sensors.ultrasonic1.distance() <= 30) {
-            if (sensors.ultrasonic1.distance() <= 7) {
+        while (ports.FRONTULTRA.distance() <= 30 && street == limits.LANDSTRASSE) {
+            if (ports.FRONTULTRA.distance() <= 7) {
                 bleibStehen()
-            } else if (sensors.ultrasonic1.distance() <= 15) {
+            } else if (ports.FRONTULTRA.distance() <= 15) {
                 veraendereGeschwindigkeit(-10)
             } else {
-                veraendereGeschwindigkeit(-10)
+                veraendereGeschwindigkeit(-1)
             }
             pause(60);
         }
         // Erkennen, wenn der Weg frei ist
-        while (sensors.ultrasonic1.distance() >= 40) {
+        while (ports.FRONTULTRA.distance() >= 40 && street == limits.LANDSTRASSE) {
             veraendereGeschwindigkeit(1)
             pause(80 * (ports.LEFTMOTOR.speed() / maxSpeed))
         }
-    })
+    }
+
     function bleibStehen() {
         motors.largeAB.run(0)
     }
-    brick.buttonEnter.onEvent(ButtonEvent.Pressed, function () {
-        maxSpeed = 100
-        passeGeschwindigkeitAn()
-    })
-    brick.buttonDown.onEvent(ButtonEvent.Pressed, function () {
-        maxSpeed = 50
-        passeGeschwindigkeitAn()
-    })
+
     function passeGeschwindigkeitAn() {
         while (ports.LEFTMOTOR.speed() < maxSpeed && ports.RIGHTMOTOR.speed() < maxSpeed) {
-            motors.largeAB.run(ports.LEFTMOTOR.speed() + 1)
-            pause(80 * (ports.LEFTMOTOR.speed() / maxSpeed))
+            veraendereGeschwindigkeit(1);
+            pause(80)
         }
         while (ports.LEFTMOTOR.speed() > maxSpeed && ports.RIGHTMOTOR.speed() > maxSpeed) {
-            motors.largeAB.run(ports.LEFTMOTOR.speed() - 1)
+            veraendereGeschwindigkeit(-1);
             pause(60)
         }
     }
-    let maxSpeed: number;
-    motors.largeAB.run(0)
-    maxSpeed = 80
-    passeGeschwindigkeitAn()
+
+    //
+    // Beginn der Blöcke
+    //
+
+    //% block="Verändere Geschwindigkeit um $num"
+    export function veraendereGeschwindigkeit(num: number) {
+        //Linker Motor
+        if (ports.LEFTMOTOR.speed() + num >= 0 && ports.LEFTMOTOR.speed() + num <= maxSpeed) {
+            ports.LEFTMOTOR.run(ports.LEFTMOTOR.speed() + num)
+        } else if (ports.LEFTMOTOR.speed() + num < 0) {
+            ports.LEFTMOTOR.run(0);
+        } else {
+            ports.LEFTMOTOR.run(maxSpeed);
+        }
+
+        //Rechter Motor
+        if (ports.RIGHTMOTOR.speed() + num >= 0 && ports.RIGHTMOTOR.speed() + num <= maxSpeed) {
+            ports.RIGHTMOTOR.run(ports.RIGHTMOTOR.speed() + num)
+        } else if (ports.RIGHTMOTOR.speed() + num < 0) {
+            ports.RIGHTMOTOR.run(0);
+        } else {
+            ports.RIGHTMOTOR.run(maxSpeed);
+        }
+    }
+
+    //% block="Wenn $farbe erkannt wird"
+    export function onColorDetect(farbe: ColorSensorColor, handler: () => void) {
+        init();
+        ports.COLORSENSOR.onColorDetected(ColorSensorColor.Blue, handler);
+    }
+
+    //% block="Einparken"
+    export function park() {
+
+    }
+
+    //% block="Setze Geschwindigkeitsbegrenzung auf $lim"
+    export function setLimit(lim: limits) {
+        if (lim = limits.AUTOBAHN) {
+            maxSpeed = limitHighway;
+            street = limits.AUTOBAHN;
+        } else if (lim = limits.LANDSTRASSE) {
+            maxSpeed = limitStreet;
+            street = limits.LANDSTRASSE;
+        }
+        passeGeschwindigkeitAn();
+    }
+
 }
+
+Autonom.onColorDetect(ColorSensorColor.Blue, function () {
+    console.log("Test")
+    Autonom.setLimit(Autonom.limits.AUTOBAHN)
+})
