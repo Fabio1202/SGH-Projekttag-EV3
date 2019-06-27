@@ -13,6 +13,7 @@ namespace Autonom {
 
     let currentCrossState = false;
     let currentCrossStateOnTurn = false;
+    let turnLeftSecondYellow = false;
 
     let nextCrossChoices: number[];
     nextCrossChoices = [];
@@ -75,7 +76,7 @@ namespace Autonom {
         if (street == limits.LANDSTRASSE) {
             kollisionsErkennungStrasse();
         } else if (street == limits.AUTOBAHN) {
-
+            kollisionsErkennungStrasse()
         }
     })
 
@@ -143,17 +144,17 @@ namespace Autonom {
     }
 
     function crossingRight() {
-        while (ports.COLORSENSOR.color() != ColorSensorColor.Yellow) {
+        while (ports.COLORSENSOR.color() != ColorSensorColor.Red) {
             ports.RIGHTMOTOR.stop();
         }
-        passeGeschwindigkeitAn();
+        ports.RIGHTMOTOR.run(ports.LEFTMOTOR.speed());
     }
 
     function crossingLeft() {
-        while (ports.COLORSENSOR.color() != ColorSensorColor.Yellow) {
+        while (ports.COLORSENSOR.color() != ColorSensorColor.Red) {
             ports.LEFTMOTOR.stop();
         }
-        passeGeschwindigkeitAn();
+        ports.LEFTMOTOR.run(ports.RIGHTMOTOR.speed());
     }
 
     function crossColorDetect(color: colors) {
@@ -255,17 +256,25 @@ namespace Autonom {
     export function crossingTurn() {
         if (currentCrossStateOnTurn == false) {
             if (nextCrossChoices.length != 0) {
-                let nextCrossChoice = nextCrossChoices[Math.randomRange(0,nextCrossChoices.length - 1)];
+                let nextCrossChoice = nextCrossChoices[Math.randomRange(0, nextCrossChoices.length - 1)];
+                console.log(nextCrossChoice.toString());
                 currentCrossStateOnTurn = true;
-                if (nextCrossChoice == crossingColor.RIGHT) {
+                if (nextCrossChoice == 0) {
                     crossingRight()
-                } else if(nextCrossChoice == crossingColor.LEFT) {
+                } else if (nextCrossChoice == 1) {
+                    while (ports.COLORSENSOR.color() != ColorSensorColor.White) {
+
+                    }
+                    while (ports.COLORSENSOR.color() != ColorSensorColor.Yellow) {
+
+                    }
                     crossingLeft()
                 }
                 currentCrossStateOnTurn = false;
             } else {
                 triggerError("3002")
             }
+            nextCrossChoices = [];
             currentCrossState = false;
         }
     }
