@@ -9,6 +9,14 @@ namespace Autonom {
 
     let street: limits;
 
+    let colorConditionBlack: number;
+
+    let currentCrossState = false;
+    let currentCrossStateOnTurn = false;
+
+    let nextCrossChoices: number[];
+    nextCrossChoices = [];
+
     let ports = {
         LEFTMOTOR: motors.largeA,
         RIGHTMOTOR: motors.largeB,
@@ -19,20 +27,29 @@ namespace Autonom {
         LIGHTSENSOR: sensors.color4
     }
 
-    let colors = {
-        AUTOBAHN: ColorSensorColor.Blue,
-        LANDSTRASSE: ColorSensorColor.Red,
-        KREUZUNG: ColorSensorColor.Yellow,
-        PARKPLATZ: ColorSensorColor.Brown,
-        PARKPLATZ_EINFAHRT: ColorSensorColor.Green,
-        STRASSENLINIE: ColorSensorColor.Black,
-        BODEN: ColorSensorColor.White
+    export enum colors {
+        AUTOBAHN = ColorSensorColor.Blue,
+        LANDSTRASSE = ColorSensorColor.Red,
+        KREUZUNG = ColorSensorColor.Yellow,
+        PARKPLATZ = ColorSensorColor.Brown,
+        PARKPLATZ_EINFAHRT = ColorSensorColor.Green,
+        STRASSENLINIE = ColorSensorColor.Black,
+        BODEN = ColorSensorColor.White,
     }
 
-    //% block
+    export enum crossingColor {
+        RIGHT,
+        LEFT,
+        STRAIGHT
+    }
+
     export const enum limits {
         AUTOBAHN,
         LANDSTRASSE
+    }
+
+    let errorMessages = {
+        "3001": "FATAL ERROR: Es wurde eine Farbe an einer Kreuzung erkannt, welche zu einem irreführenden Ergebniss führte. Der Brick hat sich zum Schutze selber ausgeschaltet."
     }
 
     //
@@ -46,18 +63,10 @@ namespace Autonom {
     //
 
     function init() {
-        let ports = {
-            LEFTMOTOR: motors.largeA,
-            RIGHTMOTOR: motors.largeB,
-            ULTRAMOTOR: motors.mediumD,
-            FRONTULTRA: sensors.ultrasonic1,
-            SIDEULTRA: sensors.ultrasonic2,
-            COLORSENSOR: sensors.color3,
-            LIGHTSENSOR: sensors.color4
-        }
-
         limitHighway = Math.randomRange(60, 80);
         limitStreet = Math.randomRange(30, 50);
+
+        colorConditionBlack = 25;
 
         setLimit(limits.LANDSTRASSE);
     }
@@ -98,17 +107,76 @@ namespace Autonom {
     }
 
     function bleibStehen() {
-        motors.largeAB.run(0)
+        ports.LEFTMOTOR.stop();
+        ports.RIGHTMOTOR.stop();
     }
 
     function passeGeschwindigkeitAn() {
         while (ports.LEFTMOTOR.speed() < maxSpeed && ports.RIGHTMOTOR.speed() < maxSpeed) {
             veraendereGeschwindigkeit(1);
-            pause(80)
+            pause(80 * (ports.LEFTMOTOR.speed() / maxSpeed))
         }
         while (ports.LEFTMOTOR.speed() > maxSpeed && ports.RIGHTMOTOR.speed() > maxSpeed) {
             veraendereGeschwindigkeit(-1);
             pause(60)
+        }
+    }
+
+    function changeSpeedLeft(num: number) {
+        if (ports.LEFTMOTOR.speed() + num >= 0 && (ports.LEFTMOTOR.speed() + num <= maxSpeed || num < 0)) {
+            ports.LEFTMOTOR.run(ports.LEFTMOTOR.speed() + num)
+        } else if (ports.LEFTMOTOR.speed() + num < 0) {
+            bleibStehen();
+        } else {
+            ports.LEFTMOTOR.run(maxSpeed);
+        }
+    }
+
+    function changeSpeedRight(num: number) {
+        if (ports.RIGHTMOTOR.speed() + num >= 0 && (ports.RIGHTMOTOR.speed() + num <= maxSpeed || num < 0)) {
+            ports.RIGHTMOTOR.run(ports.RIGHTMOTOR.speed() + num)
+        } else if (ports.RIGHTMOTOR.speed() + num < 0) {
+            bleibStehen();
+        } else {
+            ports.RIGHTMOTOR.run(maxSpeed);
+        }
+    }
+
+    function crossingRight() {
+        while (ports.COLORSENSOR.color() != ColorSensorColor.Yellow) {
+            ports.RIGHTMOTOR.stop();
+        }
+        passeGeschwindigkeitAn();
+    }
+
+    function crossingLeft() {
+        while (ports.COLORSENSOR.color() != ColorSensorColor.Yellow) {
+            ports.LEFTMOTOR.stop();
+        }
+        passeGeschwindigkeitAn();
+    }
+
+    function crossColorDetect(color: colors) {
+        if (color == colors.AUTOBAHN) {
+            nextCrossChoices.push(crossingColor.RIGHT)
+        } else if (color == colors.LANDSTRASSE) {
+            nextCrossChoices.push(crossingColor.LEFT)
+        } else if (color == colors.PARKPLATZ_EINFAHRT) {
+            nextCrossChoices.push(crossingColor.STRAIGHT)
+        } else {
+            triggerError("3001");
+        }
+    }
+
+    function triggerError(e: string) {
+        bleibStehen();
+        brick.setStatusLight(StatusLight.RedFlash);
+        console.sendToScreen();
+        console.log("Error Code: " + e);
+        while (!brick.buttonEnter.isPressed()) {
+            music.playSoundEffectUntilDone(sounds.informationErrorAlarm);
+            bleibStehen();
+            control.panic(parseInt(e));
         }
     }
 
@@ -119,28 +187,87 @@ namespace Autonom {
     //% block="Verändere Geschwindigkeit um $num"
     export function veraendereGeschwindigkeit(num: number) {
         //Linker Motor
-        if (ports.LEFTMOTOR.speed() + num >= 0 && ports.LEFTMOTOR.speed() + num <= maxSpeed) {
-            ports.LEFTMOTOR.run(ports.LEFTMOTOR.speed() + num)
-        } else if (ports.LEFTMOTOR.speed() + num < 0) {
-            ports.LEFTMOTOR.run(0);
-        } else {
-            ports.LEFTMOTOR.run(maxSpeed);
-        }
-
+        changeSpeedLeft(num);
         //Rechter Motor
-        if (ports.RIGHTMOTOR.speed() + num >= 0 && ports.RIGHTMOTOR.speed() + num <= maxSpeed) {
-            ports.RIGHTMOTOR.run(ports.RIGHTMOTOR.speed() + num)
-        } else if (ports.RIGHTMOTOR.speed() + num < 0) {
-            ports.RIGHTMOTOR.run(0);
-        } else {
-            ports.RIGHTMOTOR.run(maxSpeed);
-        }
+        changeSpeedRight(num);
+    }
+
+    //% block="Neue Kreuzung?"
+    export function newCrossing(): boolean {
+        return !currentCrossState;
     }
 
     //% block="Wenn $farbe erkannt wird"
-    export function onColorDetect(farbe: ColorSensorColor, handler: () => void) {
-        init();
-        ports.COLORSENSOR.onColorDetected(ColorSensorColor.Blue, handler);
+    export function onColorDetect(farbe: colors, handler: () => void) {
+        ports.COLORSENSOR.onColorDetected(farbe, function () {
+            if (currentCrossState == true && farbe != colors.KREUZUNG) {
+                crossColorDetect(farbe);
+            } else {
+                handler();
+            }
+        });
+    }
+
+    //% block="Rechte Fahrbahnbegrenzung erkannt"
+    export function onBorderCrossRight(handler: () => void) {
+        ports.COLORSENSOR.onColorDetected(ColorSensorColor.Black, handler);
+    }
+
+    //% block="Linke Fahrbahnbegrenzung erkannt"
+    export function onBorderCrossLeft(handler: () => void) {
+        ports.LIGHTSENSOR.onLightDetected(LightIntensityMode.Reflected, Light.Dark, handler);
+    }
+
+    //% block="Lenke links"
+    export function turnLightLeft() {
+        while (ports.COLORSENSOR.color() == ColorSensorColor.Black) {
+            if (ports.LEFTMOTOR.speed() + 30 >= ports.RIGHTMOTOR.speed()) {
+                changeSpeedLeft(-1);
+            }
+            pause(100);
+        }
+        while (ports.LEFTMOTOR.speed() < ports.RIGHTMOTOR.speed()) {
+            changeSpeedLeft(1)
+            pause(10);
+        }
+    }
+
+    //% block="Lenke rechts"
+    export function turnLightRight() {
+        while (ports.LIGHTSENSOR.reflectedLight() <= colorConditionBlack) {
+            if (ports.RIGHTMOTOR.speed() + 30 >= ports.LEFTMOTOR.speed()) {
+                changeSpeedRight(-1);
+            }
+            pause(100);
+        }
+        while (ports.RIGHTMOTOR.speed() < ports.LEFTMOTOR.speed()) {
+            changeSpeedRight(1)
+            pause(10);
+        }
+    }
+
+    //% block="Anstehende Kreuzung erkannt"
+    export function crossingDetected() {
+        currentCrossState = true;
+    }
+
+    //% block="Biege an einer Kreuzung ab"
+    export function crossingTurn() {
+        if (currentCrossStateOnTurn == false) {
+            if (nextCrossChoices.length != 0) {
+                let nextCrossChoice = nextCrossChoices[Math.randomRange(0,nextCrossChoices.length - 1)];
+                currentCrossStateOnTurn = true;
+                if (nextCrossChoice == crossingColor.RIGHT) {
+                    crossingRight()
+                } else if(nextCrossChoice == crossingColor.LEFT) {
+                    crossingLeft()
+                }
+                currentCrossStateOnTurn = false;
+            } else {
+                triggerError("3002")
+            }
+            currentCrossState = false;
+        }
     }
 
     //% block="Einparken"
@@ -150,10 +277,10 @@ namespace Autonom {
 
     //% block="Setze Geschwindigkeitsbegrenzung auf $lim"
     export function setLimit(lim: limits) {
-        if (lim = limits.AUTOBAHN) {
+        if (lim == limits.AUTOBAHN) {
             maxSpeed = limitHighway;
             street = limits.AUTOBAHN;
-        } else if (lim = limits.LANDSTRASSE) {
+        } else if (lim == limits.LANDSTRASSE) {
             maxSpeed = limitStreet;
             street = limits.LANDSTRASSE;
         }
@@ -161,8 +288,3 @@ namespace Autonom {
     }
 
 }
-
-Autonom.onColorDetect(ColorSensorColor.Blue, function () {
-    console.log("Test")
-    Autonom.setLimit(Autonom.limits.AUTOBAHN)
-})
