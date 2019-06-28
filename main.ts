@@ -144,14 +144,16 @@ namespace Autonom {
     }
 
     function crossingRight() {
-        while (ports.COLORSENSOR.color() != ColorSensorColor.Red) {
+        let angle = ports.LEFTMOTOR.angle();
+        while (ports.LEFTMOTOR.angle() - angle < 450) {
             ports.RIGHTMOTOR.stop();
         }
         ports.RIGHTMOTOR.run(ports.LEFTMOTOR.speed());
     }
 
     function crossingLeft() {
-        while (ports.COLORSENSOR.color() != ColorSensorColor.Red) {
+        let angle = ports.RIGHTMOTOR.angle();
+        while (ports.RIGHTMOTOR.angle() - angle < 450) {
             ports.LEFTMOTOR.stop();
         }
         ports.LEFTMOTOR.run(ports.RIGHTMOTOR.speed());
