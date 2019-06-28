@@ -32,10 +32,7 @@ namespace Autonom {
         AUTOBAHN = ColorSensorColor.Blue,
         LANDSTRASSE = ColorSensorColor.Red,
         KREUZUNG = ColorSensorColor.Yellow,
-        PARKPLATZ = ColorSensorColor.Brown,
         PARKPLATZ_EINFAHRT = ColorSensorColor.Green,
-        STRASSENLINIE = ColorSensorColor.Black,
-        BODEN = ColorSensorColor.White,
     }
 
     export enum crossingColor {
@@ -64,8 +61,8 @@ namespace Autonom {
     //
 
     function init() {
-        limitHighway = Math.randomRange(60, 80);
-        limitStreet = Math.randomRange(30, 50);
+        limitHighway = Math.randomRange(27, 35);
+        limitStreet = Math.randomRange(10, 20);
 
         colorConditionBlack = 25;
 
@@ -213,41 +210,19 @@ namespace Autonom {
 
     //% block="Rechte Fahrbahnbegrenzung erkannt"
     export function onBorderCrossRight(handler: () => void) {
-        ports.COLORSENSOR.onColorDetected(ColorSensorColor.Black, handler);
     }
 
     //% block="Linke Fahrbahnbegrenzung erkannt"
     export function onBorderCrossLeft(handler: () => void) {
-        ports.LIGHTSENSOR.onLightDetected(LightIntensityMode.Reflected, Light.Dark, handler);
     }
 
     //% block="Lenke links"
     export function turnLightLeft() {
-        while (ports.COLORSENSOR.color() == ColorSensorColor.Black) {
-            if (ports.LEFTMOTOR.speed() + 30 >= ports.RIGHTMOTOR.speed()) {
-                changeSpeedLeft(-1);
-            }
-            pause(100);
-        }
-        while (ports.LEFTMOTOR.speed() < ports.RIGHTMOTOR.speed()) {
-            changeSpeedLeft(1)
-            pause(10);
-        }
+
     }
 
-    //% block="Lenke rechts"
-    export function turnLightRight() {
-        while (ports.LIGHTSENSOR.reflectedLight() <= colorConditionBlack) {
-            if (ports.RIGHTMOTOR.speed() + 30 >= ports.LEFTMOTOR.speed()) {
-                changeSpeedRight(-1);
-            }
-            pause(100);
-        }
-        while (ports.RIGHTMOTOR.speed() < ports.LEFTMOTOR.speed()) {
-            changeSpeedRight(1)
-            pause(10);
-        }
-    }
+
+
 
     //% block="Anstehende Kreuzung erkannt"
     export function crossingDetected() {
