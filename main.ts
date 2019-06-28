@@ -49,7 +49,7 @@ namespace Autonom {
     }
 
     //% block="Gib Max"
-    export function getMaxSpeed(num: number): number {
+    export function getMaxSpeed(): number {
         return maxSpeed;
     }
 
