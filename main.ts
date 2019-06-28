@@ -2,7 +2,9 @@
 namespace Autonom {
     let speedRight: number;
     let speedLeft: number;
-    let maxSpeed: number;
+
+    //% block
+    export let maxSpeed: number;
 
     let limitHighway: number;
     let limitStreet: number;
@@ -39,6 +41,16 @@ namespace Autonom {
         RIGHT,
         LEFT,
         STRAIGHT
+    }
+
+    //% block="Setze Max auf $num"
+    export function setMaxSpeed(num: number) {
+        maxSpeed = num;
+    }
+
+    //% block="Gib Max"
+    export function getMaxSpeed(num: number): number {
+        return maxSpeed;
     }
 
     export const enum limits {
@@ -109,6 +121,7 @@ namespace Autonom {
         ports.RIGHTMOTOR.stop();
     }
 
+    //% block="Passe Geschwindigkeit an"
     function passeGeschwindigkeitAn() {
         while (ports.LEFTMOTOR.speed() < maxSpeed && ports.RIGHTMOTOR.speed() < maxSpeed) {
             veraendereGeschwindigkeit(1);
